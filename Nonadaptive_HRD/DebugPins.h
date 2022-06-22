@@ -1,7 +1,6 @@
 /*
  * DebugPins.h
  *
- *      Author: ab6uy
  */
 
 #ifndef DEBUGPINS_H_
