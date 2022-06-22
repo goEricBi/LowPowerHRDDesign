@@ -6,3 +6,5 @@ Serveal Features are implement as preparation for adaptive heartrate dectector <
 3. I/O signial trigger for digital PPG heartrate pulse 
 4. LED Toggle Feature for indication of Heart beat 
 5. Debug features for AD2 waveforms measurement 
+
+Noticed this project is modified based on Prof. Adam Barnes' course (ECE3430) design 
