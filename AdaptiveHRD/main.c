@@ -17,6 +17,10 @@ void ConfigureClockModule();
 
 int main(void)
 {
+    unsigned int HR[4] = [857,857,857,857];  //Resting Heart Rate (period) in ms
+    unsigned int index = 0;
+    unsigned int sum = 3388; //857*4
+    unsigned int avgThresh = 2000;// 2000ms => 2s => 0.5 Hz
 	SwitchDefine PushButton;
 	unsigned char X1 = FALSE;
 	unsigned char X0 = FALSE;
@@ -38,16 +42,18 @@ int main(void)
 
 	// Enable interrupts
 	_enable_interrupts();
-	// Loop forever
+
 	while(TRUE) {
-		// First, determine the current inputs, X1 and X0.
-	    //X0 = ReadSwitchStatus(&PushButton);
-	    // if readswitchstatus == active, x0 = true
+	    unsigned int activeTime = 0;
+	    unsigned int inactiveTime = 0;
+
+	    // Check for the threshold Time
 	    X0 = ReadSwitchStatus(&PushButton) == Active;
-	    //X1 = X0?(g1msTimer- PushButton.EventTime) >=PushButton.ActiveThreshold:(g1msTimer- PushButton.EventTime) >= PushButton.InactiveThreshold;
 	    if(PushButton.CurrentState==ValidateActive){
 	        if((g1msTimer - PushButton.EventTime) >=PushButton.ActiveThreshold){
 	            X1 = TRUE;
+	            // pass the debouncing filter: 
+	            //activeTime = PushButton.EventTime;
 	        }else{
 	            X1 = FALSE;
 	        }
@@ -55,29 +61,43 @@ int main(void)
         if(PushButton.CurrentState==ValidateInactive){
             if((g1msTimer - PushButton.EventTime) >=PushButton.InactiveThreshold){
                 X1 = TRUE;
+                // pass the debouncing filter: 
+                //inactiveTime = PushButton.EventTime;
             }else{
                 X1 = FALSE;
+            }
+        }
+        
+        // threshold setting:
+        unsigned int avgWind = sum/4; 
+        if(avgWind -(inactiveTime - activeTime)<= avgThresh){
+            // good, and just replace the array
+            
+            index += 1;
+            if(index == 4){
+                index =0; 
+            }
+            /replacing the index 
+            sum = sum - HR[index] +  inactiveTime - activeTime;
+            HR[index] = inactiveTime - activeTime; /              
+        }
+        else{
+            missCount += 1;
+            if (missCount >=2){
+                //trigger alert:
+          
+               misCount = 0;
             }
         }
 	    // Next, based on the input values and the current state, determine the next state.
 	    PushButton.CurrentState = NextStateFunction(&PushButton,X0,X1);
 	    // Perform the output function based on the inputs and current state.
 		OutputFunction(&PushButton,X0,X1);
-//		if (PushButton.SwitchCycleNotComplete == FALSE){
-//		    TOGGLE_GREEN_LED;
-//			PushButton.SwitchCycleNotComplete = TRUE;
-//		}
-//        if (PushButton.SwitchCycleNotComplete == FALSE){
-//          TOGGLE_RED_LED;
-//          PushButton.SwitchCycleNotComplete = TRUE;
-//        }
 
 		if(PushButton.CurrentState == ValidateInactive ||PushButton.CurrentState == ValidateActive ){
 		    TOGGLE_GREEN_LED;
 		}
-//		else{
-//		    TURN_OFF_GREEN_LED;
-//		}
+
 	}
 	//return 0;
 }
