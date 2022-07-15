@@ -10,20 +10,20 @@
 unsigned int g1msTimer;			// Global 1 ms timer
 #define FALSE 0
 #define TRUE 1
-#define missCount 2
 #define idleTime
 // Function Prototypes
 void ConfigureClockModule();
 
 int main(void)
 {
-    unsigned int HR[4] = [857,857,857,857];  //Resting Heart Rate (period) in ms
+    unsigned int HR[4] = {857,857,857,857};  //Resting Heart Rate (period) in ms
+    unsigned int timerA = 0;
+    unsigned int failover = 2;
     unsigned int index = 0;
-    unsigned int sum = 3388; //857*4
-    unsigned int avgThresh = 2000;// 2000ms => 2s => 0.5 Hz
 	SwitchDefine PushButton;
 	unsigned char X1 = FALSE;
 	unsigned char X0 = FALSE;
+
 
     WDTCTL = WDTPW | WDTHOLD;		// Stop watchdog timer
     ConfigureClockModule();
@@ -42,18 +42,14 @@ int main(void)
 
 	// Enable interrupts
 	_enable_interrupts();
-
+	unsigned int activeTime = 500;
 	while(TRUE) {
-	    unsigned int activeTime = 0;
-	    unsigned int inactiveTime = 0;
 
 	    // Check for the threshold Time
 	    X0 = ReadSwitchStatus(&PushButton) == Active;
 	    if(PushButton.CurrentState==ValidateActive){
 	        if((g1msTimer - PushButton.EventTime) >=PushButton.ActiveThreshold){
 	            X1 = TRUE;
-	            // pass the debouncing filter: 
-	            //activeTime = PushButton.EventTime;
 	        }else{
 	            X1 = FALSE;
 	        }
@@ -61,41 +57,35 @@ int main(void)
         if(PushButton.CurrentState==ValidateInactive){
             if((g1msTimer - PushButton.EventTime) >=PushButton.InactiveThreshold){
                 X1 = TRUE;
-                // pass the debouncing filter: 
-                //inactiveTime = PushButton.EventTime;
             }else{
                 X1 = FALSE;
             }
         }
-        
-        // threshold setting:
-        unsigned int avgWind = sum/4; 
-        if(avgWind -(inactiveTime - activeTime)<= avgThresh){
-            // good, and just replace the array
-            
-            index += 1;
-            if(index == 4){
-                index =0; 
-            }
-            /replacing the index 
-            sum = sum - HR[index] +  inactiveTime - activeTime;
-            HR[index] = inactiveTime - activeTime; /              
-        }
-        else{
-            missCount += 1;
-            if (missCount >=2){
-                //trigger alert:
-          
-               misCount = 0;
-            }
-        }
+
 	    // Next, based on the input values and the current state, determine the next state.
 	    PushButton.CurrentState = NextStateFunction(&PushButton,X0,X1);
 	    // Perform the output function based on the inputs and current state.
 		OutputFunction(&PushButton,X0,X1);
 
 		if(PushButton.CurrentState == ValidateInactive ||PushButton.CurrentState == ValidateActive ){
-		    TOGGLE_GREEN_LED;
+		    if(g1msTimer-timerA>0 && g1msTimer-timerA<activeTime){
+		        HR[index]=g1msTimer-timerA;
+		        TOGGLE_GREEN_LED;
+		        index++;
+		        if(index==4){
+		            index = 0;
+		        }
+		    }
+		    else{
+		        TOGGLE_RED_LED; // MissCount Occurs
+		        failover--;
+		        if(failover==0){
+		            TOGGLE_GREEN_LED;
+		            TOGGLE_RED_LED;
+		            failover = 2;
+		        }
+		    }
+		    timerA = g1msTimer;
 		}
 
 	}
@@ -108,11 +98,3 @@ void ConfigureClockModule()
 	DCOCTL  = CALDCO_1MHZ;
 	BCSCTL1 = CALBC1_1MHZ;
 }
-
-
-
-
-
-
-
-
