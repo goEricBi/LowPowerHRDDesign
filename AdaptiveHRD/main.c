@@ -17,6 +17,7 @@ void ConfigureClockModule();
 int main(void)
 {
     unsigned int HR[4] = {857,857,857,857};  //Resting Heart Rate (period) in ms
+    unsigned int array_sum = 3428;
     unsigned int timerA = 0;
     unsigned int failover = 2;
     unsigned int index = 0;
@@ -66,10 +67,12 @@ int main(void)
 	    PushButton.CurrentState = NextStateFunction(&PushButton,X0,X1);
 	    // Perform the output function based on the inputs and current state.
 		OutputFunction(&PushButton,X0,X1);
-
+		unsigned int avg = array_sum >> 2; // two bit shift == divide by 4
 		if(PushButton.CurrentState == ValidateInactive ||PushButton.CurrentState == ValidateActive ){
-		    if(g1msTimer-timerA>0 && g1msTimer-timerA<activeTime){
-		        HR[index]=g1msTimer-timerA;
+		    if(g1msTimer-timerA>0 && (avg-(g1msTimer-timerA)<=activeTime || avg-(g1msTimer-timerA)>=-activeTime)){ // Check if the diff under the threshold
+		        array_sum=array_sum-HR[index]; // Push the HR[index] away
+		        HR[index]=g1msTimer-timerA;  // Update the array
+		        array_sum=array_sum+HR[index]; // Update the sum
 		        TOGGLE_GREEN_LED;
 		        index++;
 		        if(index==4){
